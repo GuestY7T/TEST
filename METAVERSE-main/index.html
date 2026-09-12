@@ -1,0 +1,1834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://cdn.jsdelivr.net; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://cdn.jsdelivr.net; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <title>Metaverse Platform Sandbox</title>
+  <link rel="manifest" href="./manifest.json">
+  <style>
+    :root {
+      --mv-bg-0: #0f3a5a;
+      --mv-bg-1: #184c70;
+      --mv-nav-h: 70px;
+      --mv-rail-w: 76px;
+      --mv-panel: rgba(32, 92, 136, 0.78);
+      --mv-panel-edge: #3a7ca7;
+      --mv-accent: #bde5ff;
+      --mv-accent-2: #9fe1ff;
+      --mv-text-soft: #cae4f4;
+      --mv-glow: 0 0 22px rgba(148, 219, 255, 0.2);
+      --mv-realism-depth: 0.35;
+      --mv-realism-sharpness: 1;
+      --mv-realism-specular: 0.12;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Orbitron', 'BankGothic Md BT', 'Segoe UI', Tahoma, sans-serif; }
+    body {
+      background:
+        radial-gradient(1300px 640px at 12% -18%, rgba(177, 226, 255, 0.2), transparent 62%),
+        radial-gradient(1000px 520px at 98% 125%, rgba(133, 201, 243, 0.18), transparent 60%),
+        linear-gradient(180deg, var(--mv-bg-1) 0%, var(--mv-bg-0) 100%);
+      color: #fff;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      user-select: none;
+      transition: filter 180ms ease, background 220ms ease;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background:
+        linear-gradient(120deg, rgba(51, 210, 255, 0.04), rgba(122, 255, 200, 0.02) 45%, rgba(51, 210, 255, 0.04)),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0px, rgba(255, 255, 255, 0.02) 1px, transparent 1px, transparent 3px);
+      mix-blend-mode: screen;
+      opacity: 0.34;
+    }
+
+    /* Canvas */
+    #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+    #canvas-container {
+      background:
+        radial-gradient(1200px 500px at 20% -10%, rgba(0, 162, 255, calc(0.06 + var(--mv-realism-depth))), transparent 60%),
+        radial-gradient(900px 400px at 90% 120%, rgba(14, 255, 168, calc(0.05 + (var(--mv-realism-depth) * 0.65))), transparent 60%),
+        linear-gradient(180deg, #0b1116 0%, #080a0d 100%);
+    }
+    #scene-status {
+      position: absolute; left: calc(var(--mv-rail-w) + 16px); top: calc(var(--mv-nav-h) + 12px); z-index: 6;
+      background: rgba(19, 64, 96, 0.84); border: 1px solid var(--mv-panel-edge); border-radius: 10px;
+      padding: 8px 10px; font-size: 0.78rem; color: #9ad8ff;
+      transition: filter 180ms ease, opacity 180ms ease;
+      box-shadow: var(--mv-glow);
+    }
+
+    body.setting-cinematic #canvas-container { filter: saturate(1.12) brightness(1.05) contrast(1.04); }
+    body.setting-cinematic #scene-status { opacity: 0.95; }
+    body.setting-physics .game-card { transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.2, 1), border-color 0.2s; }
+    body[data-mv-motion="reduced"] * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+
+    /* Top HUD / Navbar */
+    #navbar {
+      position: absolute; top: 0; left: 0; width: 100%; height: var(--mv-nav-h); z-index: 10;
+      background: linear-gradient(180deg, rgba(16, 62, 96, 0.96), rgba(13, 52, 84, 0.96)); backdrop-filter: blur(10px);
+      padding: 10px 16px 10px calc(var(--mv-rail-w) + 14px); display: grid; grid-template-columns: 250px 1fr 330px; align-items: center; gap: 14px;
+      border-bottom: 1px solid #2d6f9c;
+      box-shadow: inset 0 -1px 0 rgba(176, 229, 255, 0.12), 0 12px 28px rgba(0, 0, 0, 0.22);
+    }
+    .hud-title {
+      font-weight: 900;
+      font-size: 1.05rem;
+      color: #ecf8ff;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      text-transform: uppercase;
+    }
+    .hud-sub {
+      color: #b9d9ec;
+      margin-top: 2px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .top-search {
+      border: 1px solid #3a759b;
+      border-radius: 12px;
+      background: rgba(20, 67, 101, 0.95);
+      color: #e7f5ff;
+      padding: 10px 14px 10px 16px;
+      font-size: 0.94rem;
+      outline: none;
+      width: 100%;
+      box-shadow: inset 0 0 0 1px rgba(146, 208, 245, 0.08);
+    }
+    .top-search:focus { border-color: #74cfff; box-shadow: 0 0 0 2px rgba(116, 207, 255, 0.16), inset 0 0 0 1px rgba(146, 208, 245, 0.12); }
+    .top-search::placeholder { color: #a5cadf; }
+    .hud-stats { display: flex; justify-content: flex-end; gap: 10px; font-weight: 700; font-size: 0.84rem; }
+    .stat-badge { background: rgba(20, 70, 104, 0.9); padding: 6px 12px; border-radius: 999px; border: 1px solid #3e7ea9; color: #d4ecfb; white-space: nowrap; }
+    .stat-badge span { color: #ffffff; }
+
+    /* Sidebar Nav */
+    #sidebar {
+      position: absolute; top: 0; left: 0; width: var(--mv-rail-w); height: 100vh; z-index: 11;
+      background: linear-gradient(180deg, rgba(8, 40, 64, 0.97), rgba(7, 36, 58, 0.97)); backdrop-filter: blur(10px);
+      border-right: 1px solid #2a6d99; padding: 12px 7px; display: flex; flex-direction: column; gap: 7px;
+      box-shadow: inset -1px 0 0 rgba(167, 224, 255, 0.1);
+    }
+    .nav-item {
+      padding: 9px 5px; border-radius: 10px; color: #aacfe6; text-decoration: none;
+      font-weight: 700; font-size: 0.72rem; cursor: pointer; transition: all 0.2s;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      line-height: 1;
+    }
+    .nav-item:hover, .nav-item.active { background: rgba(132, 201, 243, 0.2); color: #ffffff; transform: translateY(-1px); }
+
+    /* Dashboard Overlay */
+    #dashboard-overlay {
+      position: absolute; top: var(--mv-nav-h); left: var(--mv-rail-w); width: calc(100vw - 374px); height: calc(100vh - var(--mv-nav-h));
+      z-index: 5; padding: 20px 22px 30px; overflow-y: auto; pointer-events: auto;
+      background: linear-gradient(180deg, rgba(14, 71, 111, 0.28), rgba(8, 48, 77, 0.08));
+      border-left: 1px solid rgba(95, 157, 199, 0.38);
+    }
+    .section-title { font-size: 1.38rem; font-weight: 900; margin-bottom: 14px; color: #fff; letter-spacing: 0.01em; }
+    .section-title::after {
+      content: '';
+      display: block;
+      width: 120px;
+      height: 2px;
+      margin-top: 8px;
+      background: linear-gradient(90deg, #38c7ff 0%, rgba(56, 199, 255, 0.05) 100%);
+    }
+    .dashboard-panel {
+      margin-bottom: 16px;
+      padding: 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(58, 81, 98, 0.55);
+      background: linear-gradient(180deg, rgba(20, 25, 30, 0.9), rgba(15, 18, 22, 0.88));
+      box-shadow: inset 0 0 0 1px rgba(132, 177, 206, 0.08);
+    }
+    .runtime-panel { color: #aec8da; }
+    .runtime-panel .panel-title { font-weight: 800; color: #68ceff; margin-bottom: 8px; }
+    .control-panel .panel-title { font-weight: 800; color: #93d3ff; margin-bottom: 8px; }
+    .status-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .status-chip {
+      border: 1px solid #355b70;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 0.74rem;
+      color: #9dd9ff;
+      background: rgba(17, 33, 44, 0.72);
+    }
+    .friends-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .friend-bubble.add-friend {
+      border-style: dashed;
+      background: rgba(22, 61, 93, 0.72);
+    }
+    .friend-bubble.add-friend .avatar {
+      border-style: dashed;
+      font-size: 1.45rem;
+    }
+    .friend-bubble {
+      border: 1px solid #3f80ac;
+      border-radius: 10px;
+      background: rgba(24, 80, 121, 0.88);
+      padding: 10px;
+      font-size: 0.76rem;
+      color: #d9eeff;
+      display: grid;
+      gap: 6px;
+      justify-items: center;
+      text-align: center;
+    }
+    .friend-bubble .avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 999px;
+      border: 1px solid #4f92bf;
+      background: rgba(20, 69, 104, 0.96);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #e4f5ff;
+      font-weight: 800;
+    }
+    .continue-row {
+      margin-top: 12px;
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    }
+    .continue-card {
+      position: relative;
+      border: 1px solid #3c7ea9;
+      border-radius: 10px;
+      background: linear-gradient(160deg, rgba(16, 74, 112, 0.94), rgba(14, 42, 69, 0.92));
+      padding: 10px;
+      color: #dff2ff;
+      font-size: 0.78rem;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .continue-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(140deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 35%);
+    }
+    .continue-card .title {
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+    .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)); gap: 14px; }
+    .game-card {
+      background: rgba(29, 89, 132, 0.9); border: 1px solid #3b779f; border-radius: 12px;
+      padding: 12px; cursor: pointer; transition: transform 0.2s, border-color 0.2s;
+      box-shadow: inset 0 0 0 1px rgba(169, 221, 250, 0.08);
+    }
+    .game-card.dashboard-card {
+      padding: 8px;
+      border-radius: 11px;
+      background: rgba(13, 58, 90, 0.92);
+      border-color: #4f90b6;
+    }
+    .game-card:hover { transform: translateY(-4px); border-color: var(--mv-accent); box-shadow: var(--mv-glow); }
+    .game-thumb { width: 100%; height: 100px; background: #111213; border-radius: 8px; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; font-size: 2rem; }
+    .game-thumb {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(92, 140, 166, 0.38);
+    }
+    .game-thumb::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(145deg, rgba(255, 255, 255, calc(var(--mv-realism-specular) * 0.85)), transparent 36%, rgba(51, 210, 255, calc(var(--mv-realism-specular) * 0.6)));
+      mix-blend-mode: screen;
+    }
+    .game-name { font-weight: bold; font-size: 0.95rem; margin-bottom: 4px; }
+    .game-players { font-size: 0.75rem; color: #888; }
+    .game-thumb-label {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: rgba(8, 13, 20, 0.78);
+      border: 1px solid rgba(160, 220, 255, 0.5);
+      font-size: 0.63rem;
+      color: #e8f7ff;
+      font-weight: 800;
+      z-index: 1;
+      letter-spacing: 0.04em;
+    }
+    .game-stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      color: #b8dbef;
+      font-size: 0.74rem;
+    }
+    .game-stats .rating {
+      color: #d5f1ff;
+      font-weight: 700;
+    }
+
+    .mv-icon {
+      --icon-primary: currentColor;
+      --icon-secondary: currentColor;
+      width: 1.05em;
+      height: 1.05em;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: -0.12em;
+      color: var(--icon-primary);
+      filter: drop-shadow(0 0 6px currentColor);
+      flex: 0 0 auto;
+      transform: scale(var(--mv-realism-sharpness));
+    }
+    .mv-icon svg {
+      width: 100%;
+      height: 100%;
+      fill: var(--icon-primary);
+      stroke: var(--icon-secondary);
+      stroke-width: 1.3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .icon-tone-sky { --icon-primary: #69dcff; --icon-secondary: #d7f5ff; }
+    .icon-tone-mango { --icon-primary: #ffc458; --icon-secondary: #ffe5af; }
+    .icon-tone-gold { --icon-primary: #ffd64f; --icon-secondary: #fff0a4; }
+    .icon-tone-violet { --icon-primary: #be9cff; --icon-secondary: #ecdfff; }
+    .icon-tone-steel { --icon-primary: #9bc0df; --icon-secondary: #d9ebf8; }
+    .icon-tone-fuchsia { --icon-primary: #ff72db; --icon-secondary: #ffd0f2; }
+    .icon-tone-cyan { --icon-primary: #4deeff; --icon-secondary: #d8fcff; }
+    .icon-tone-lime { --icon-primary: #9cfb61; --icon-secondary: #dffdca; }
+    .icon-tone-sunset { --icon-primary: #ff8f54; --icon-secondary: #ffd8c1; }
+    .icon-tone-orange { --icon-primary: #ff9f3d; --icon-secondary: #ffe2c3; }
+    .icon-tone-crimson { --icon-primary: #ff5f66; --icon-secondary: #ffc9cb; }
+    .icon-tone-copper { --icon-primary: #d88b58; --icon-secondary: #f3d5c0; }
+    .icon-tone-teal { --icon-primary: #3fe6c2; --icon-secondary: #c8fff0; }
+    .icon-tone-emerald { --icon-primary: #45d97b; --icon-secondary: #ccf8de; }
+    .icon-tone-aqua { --icon-primary: #2ff5e2; --icon-secondary: #c8fffb; }
+    .icon-tone-electric { --icon-primary: #59a8ff; --icon-secondary: #d8e9ff; }
+    .icon-tone-royal { --icon-primary: #7f88ff; --icon-secondary: #dfe2ff; }
+    .icon-tone-rose { --icon-primary: #ff7cb6; --icon-secondary: #ffd7ea; }
+    .icon-tone-rainbow {
+      --icon-primary: #ff77d9;
+      --icon-secondary: #78ffe8;
+      filter: drop-shadow(0 0 8px rgba(255, 119, 217, 0.45));
+    }
+    .icon-tone-ice { --icon-primary: #b9f0ff; --icon-secondary: #ecf9ff; }
+    .icon-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .icon-label .label-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .nav-item .mv-icon {
+      width: 1.15em;
+      height: 1.15em;
+      background: rgba(12, 57, 87, 0.86);
+      border: 1px solid rgba(95, 170, 219, 0.5);
+      border-radius: 8px;
+      padding: 4px;
+    }
+    .emote-btn .mv-icon { width: 1em; height: 1em; margin-right: 6px; }
+    .game-thumb .mv-icon { width: 64px; height: 64px; color: #73d7ff; }
+    .recent-chip .mv-icon { width: 0.92em; height: 0.92em; }
+    #ai-launcher .mv-icon { width: 26px; height: 26px; }
+    .player-item .mv-icon { width: 0.95em; height: 0.95em; margin-right: 5px; color: #83ceff; }
+
+    /* Modals */
+    .app-modal {
+      display: none; position: absolute; top: calc(var(--mv-nav-h) + 10px); left: calc(var(--mv-rail-w) + 12px); width: calc(100vw - 410px); height: calc(100vh - 102px);
+      background: rgba(23, 79, 118, 0.96); border: 1px solid #3375a1; border-radius: 12px;
+      z-index: 15; padding: 24px; overflow-y: auto; backdrop-filter: blur(12px);
+      opacity: 0;
+      transform: translateY(10px) scale(0.992);
+      animation: mvModalIn 180ms ease-out forwards;
+    }
+    @keyframes mvModalIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.992); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .chat-hub-layout {
+      display: grid;
+      grid-template-columns: minmax(240px, 340px) 1fr;
+      gap: 12px;
+      height: calc(100% - 44px);
+      min-height: 360px;
+    }
+    .chat-hub-list {
+      border: 1px solid #36779f;
+      border-radius: 10px;
+      overflow: auto;
+      background: rgba(22, 72, 108, 0.88);
+    }
+    .chat-hub-item {
+      padding: 10px;
+      border-bottom: 1px solid rgba(145, 203, 239, 0.14);
+      color: #d3ebfc;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .chat-hub-item strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 0.85rem;
+    }
+    .chat-hub-item:hover {
+      background: rgba(161, 218, 252, 0.1);
+    }
+    .chat-hub-empty {
+      border: 1px dashed #4f8db6;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: #cae6f8;
+      background: rgba(18, 61, 93, 0.6);
+      padding: 14px;
+      font-size: 0.88rem;
+    }
+    .more-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      margin-top: 10px;
+    }
+    .more-tile {
+      border: 1px solid #3e7ea9;
+      border-radius: 10px;
+      background: rgba(28, 86, 128, 0.9);
+      color: #dff2ff;
+      min-height: 112px;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      align-content: center;
+      justify-items: center;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .onboarding-panel {
+      margin-bottom: 14px;
+      border: 1px solid #4f8fb5;
+      border-radius: 12px;
+      background: linear-gradient(150deg, rgba(20, 85, 125, 0.92), rgba(14, 48, 77, 0.92));
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      color: #dbf2ff;
+    }
+    .onboarding-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      font-size: 0.88rem;
+      font-weight: 900;
+    }
+    .onboarding-note {
+      font-size: 0.78rem;
+      line-height: 1.45;
+      color: #c7e6f8;
+    }
+    .onboarding-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .auth-account-list {
+      margin-top: 10px;
+      display: grid;
+      gap: 7px;
+      max-height: 152px;
+      overflow: auto;
+    }
+    .auth-account-chip {
+      width: 100%;
+      text-align: left;
+      border: 1px solid #3a5c74;
+      border-radius: 9px;
+      background: rgba(19, 34, 47, 0.9);
+      color: #d2ecff;
+      padding: 8px 10px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .auth-account-chip small {
+      display: block;
+      margin-top: 3px;
+      color: #9dc5df;
+      font-weight: 600;
+    }
+    .idea-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .idea-panel {
+      border: 1px solid #3f7ea7;
+      border-radius: 10px;
+      background: rgba(16, 59, 90, 0.88);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .idea-list {
+      display: grid;
+      gap: 6px;
+      max-height: 280px;
+      overflow: auto;
+    }
+    .idea-item {
+      border: 1px solid #3e7598;
+      border-radius: 8px;
+      background: rgba(15, 45, 69, 0.88);
+      padding: 8px;
+      font-size: 0.76rem;
+      color: #d8efff;
+    }
+    .idea-item .meta {
+      font-size: 0.7rem;
+      margin-top: 4px;
+      color: #9fcbe5;
+    }
+    .profile-card {
+      border: 1px solid #3d7fa8;
+      border-radius: 12px;
+      background: rgba(24, 79, 117, 0.9);
+      padding: 14px;
+      color: #d8efff;
+      display: grid;
+      gap: 10px;
+      max-width: 520px;
+    }
+    .profile-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .profile-avatar {
+      width: 70px;
+      height: 70px;
+      border-radius: 999px;
+      background: rgba(18, 65, 98, 0.95);
+      border: 1px solid #5a9ac3;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+    }
+    .profile-sheet {
+      border: 1px solid #4a88af;
+      border-radius: 12px;
+      background: rgba(21, 74, 110, 0.93);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      max-width: 520px;
+      animation: mvSlideIn 160ms ease-out;
+    }
+    .profile-sheet input,
+    .profile-sheet textarea {
+      width: 100%;
+      border: 1px solid #4382ac;
+      border-radius: 8px;
+      background: rgba(14, 52, 81, 0.9);
+      color: #e7f6ff;
+      padding: 9px 10px;
+      outline: none;
+      font-size: 0.84rem;
+    }
+    .profile-sheet textarea { min-height: 88px; resize: vertical; }
+    @keyframes mvSlideIn {
+      from { opacity: 0; transform: translateX(14px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .modal-close { position: absolute; top: 16px; right: 20px; font-size: 1.2rem; cursor: pointer; color: #888; }
+    .modal-close:hover { color: #fff; }
+
+    /* Emotes Bar */
+    #emotes-bar {
+      position: absolute; bottom: 20px; left: 88px; z-index: 10;
+      background: rgba(14, 61, 94, 0.9); backdrop-filter: blur(10px);
+      border: 1px solid #3a7aa6; border-radius: 30px; padding: 6px 16px; display: flex; gap: 12px;
+    }
+    .emote-btn {
+      background: #191B1D; border: 1px solid #333; color: #fff; padding: 8px 14px;
+      border-radius: 20px; font-size: 0.8rem; font-weight: bold; cursor: pointer; transition: all 0.2s;
+    }
+    .emote-btn:hover { border-color: #00A2FF; color: #00A2FF; }
+
+    /* Right Social Sidebar */
+    #social-sidebar {
+      position: absolute; top: 72px; right: 0; width: 300px; height: calc(100vh - 72px); z-index: 10;
+      background: rgba(13, 59, 92, 0.94); backdrop-filter: blur(10px);
+      border-left: 1px solid #2f709b; display: flex; flex-direction: column;
+    }
+    .social-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid #28333a;
+      background: rgba(9, 18, 25, 0.82);
+    }
+    .social-title {
+      font-size: 0.76rem;
+      letter-spacing: 0.08em;
+      font-weight: 800;
+      color: #8fd6ff;
+    }
+    .social-actions { display: flex; gap: 6px; }
+    .social-action-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid #315165;
+      background: #112431;
+      color: #bde7ff;
+      cursor: pointer;
+      font-weight: 800;
+      line-height: 1;
+      padding: 0;
+    }
+    .social-action-btn:hover { border-color: #4e7a94; }
+    .chat-tabs { display: flex; border-bottom: 1px solid #232527; }
+    .chat-tab { flex: 1; padding: 12px; text-align: center; font-size: 0.8rem; font-weight: bold; color: #888; cursor: pointer; }
+    .chat-tab.active { color: #00A2FF; border-bottom: 2px solid #00A2FF; }
+    
+    .panel-content { flex: 1; display: none; flex-direction: column; padding: 12px; overflow-y: auto; }
+    .panel-content.active { display: flex; }
+    
+    .chat-box { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; margin-bottom: 10px; }
+    .chat-msg { background: rgba(255, 255, 255, 0.05); padding: 8px 10px; border-radius: 6px; }
+    .chat-msg span { color: #00A2FF; font-weight: bold; }
+    .chat-msg.bot span { color: #FF9900; }
+    .chat-input-box { padding: 10px; border-top: 1px solid #232527; }
+    .chat-input-row { display: flex; gap: 8px; }
+    .chat-input-box input { flex: 1; background: #111213; border: 1px solid #232527; border-radius: 6px; padding: 8px 10px; color: #fff; outline: none; }
+    .chat-send { background: #00A2FF; border: none; color: #fff; font-weight: 700; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
+    .chat-send:hover { background: #0082cc; }
+
+    body.chat-minimized #social-sidebar { height: 58px; overflow: hidden; }
+    body.chat-minimized .panel-content { display: none !important; }
+    body.chat-closed #social-sidebar { display: none; }
+
+    .slider-wrap {
+      display: grid;
+      gap: 6px;
+      width: min(220px, 42vw);
+    }
+    .slider-wrap input[type="range"] { width: 100%; accent-color: #1ab2ff; }
+    .slider-value { font-size: 0.75rem; color: #8fd7ff; text-align: right; }
+
+    .friend-item, .player-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(25, 27, 29, 0.9); border: 1px solid #232527; border-radius: 8px;
+      padding: 10px; margin-bottom: 8px; font-size: 0.85rem;
+    }
+    .friend-browser {
+      margin-top: 10px;
+      border-top: 1px solid #273746;
+      padding-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .friend-browser input,
+    .community-form input,
+    .community-form select {
+      width: 100%;
+      border: 1px solid #2f4556;
+      border-radius: 8px;
+      background: rgba(11, 17, 24, 0.92);
+      color: #d9eefb;
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      outline: none;
+    }
+    .friend-browser input:focus,
+    .community-form input:focus,
+    .community-form select:focus {
+      border-color: #54cbff;
+      box-shadow: 0 0 0 2px rgba(84, 203, 255, 0.2);
+    }
+    .community-form {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #273746;
+      padding-bottom: 10px;
+    }
+    .community-list {
+      display: grid;
+      gap: 8px;
+    }
+    .community-card {
+      border: 1px solid #2d4b60;
+      border-radius: 8px;
+      background: rgba(12, 21, 30, 0.9);
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      color: #d1e8f8;
+    }
+    .community-card .meta {
+      color: #99bfd4;
+      margin-top: 4px;
+    }
+    .secret-list {
+      display: grid;
+      gap: 6px;
+      margin-top: 8px;
+      color: #d5eeff;
+      font-size: 0.77rem;
+    }
+    .secret-item {
+      border: 1px solid #2f5368;
+      border-radius: 8px;
+      background: rgba(14, 27, 38, 0.8);
+      padding: 7px 9px;
+    }
+    body.visibility-boost {
+      color: #f4fbff;
+    }
+    body.visibility-boost .dashboard-panel,
+    body.visibility-boost .app-modal,
+    body.visibility-boost #social-sidebar {
+      border-color: #5a8dad;
+      box-shadow: inset 0 0 0 1px rgba(173, 223, 255, 0.16);
+    }
+    body.hide-extras #runtime-panel,
+    body.hide-extras #implement-mode-panel,
+    body.hide-extras #badge-panel,
+    body.hide-extras #quality-debug-panel {
+      display: none;
+    }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .online { background: #00FF88; }
+    .offline { background: #555; }
+    .btn-action {
+      background: linear-gradient(90deg, #0da4e7, #20d5ff);
+      color: #fff;
+      border: 1px solid rgba(128, 223, 255, 0.52);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-weight: bold;
+      letter-spacing: 0.02em;
+      box-shadow: 0 4px 14px rgba(13, 164, 231, 0.28);
+    }
+    .btn-action:hover { background: linear-gradient(90deg, #0c94d0, #17c4ea); }
+
+    body[data-mv-device-tier="legacy"]::before { opacity: 0.16; }
+    body[data-mv-device-tier="legacy"] .game-card,
+    body[data-mv-device-tier="legacy"] #scene-status,
+    body[data-mv-device-tier="legacy"] .btn-action {
+      box-shadow: none;
+    }
+    body[data-mv-device-tier="legacy"] .mv-icon {
+      filter: none;
+    }
+    body[data-mv-realism-tier="ultra"] .game-card {
+      border-color: rgba(110, 190, 225, 0.68);
+      box-shadow: inset 0 0 0 1px rgba(158, 222, 250, 0.24), 0 12px 24px rgba(0, 0, 0, 0.28);
+    }
+    body[data-mv-realism-tier="high"] .game-card {
+      border-color: rgba(92, 160, 196, 0.56);
+    }
+
+    /* AI Corner Launcher */
+    #ai-launcher {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 30;
+      width: 54px;
+      height: 54px;
+      border-radius: 999px;
+      border: 1px solid #2f5269;
+      background: radial-gradient(circle at 30% 30%, #2ecbff 0%, #0d7fb3 55%, #0a4f72 100%);
+      color: #ffffff;
+      font-size: 1.35rem;
+      cursor: pointer;
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    #ai-launcher:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 14px 30px rgba(0, 0, 0, 0.42);
+    }
+    #ai-launcher.active {
+      border-color: #9fdfff;
+      box-shadow: 0 0 0 3px rgba(0, 162, 255, 0.22), 0 12px 28px rgba(0, 0, 0, 0.42);
+    }
+
+    /* Auth Overlay */
+    #auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      overflow: auto;
+      background: radial-gradient(circle at 18% 12%, rgba(31, 126, 191, 0.36) 0%, rgba(10, 12, 17, 0.86) 34%, rgba(3, 5, 9, 0.96) 100%);
+      backdrop-filter: blur(7px);
+    }
+    #auth-overlay.hidden { display: none; }
+    .auth-scene {
+      position: relative;
+      min-height: 100vh;
+      padding: 22px 22px 38px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+    .auth-scene::before,
+    .auth-scene::after {
+      content: '';
+      position: absolute;
+      width: 440px;
+      height: 440px;
+      border-radius: 999px;
+      pointer-events: none;
+      filter: blur(36px);
+      opacity: 0.35;
+    }
+    .auth-scene::before {
+      top: -120px;
+      right: -120px;
+      background: radial-gradient(circle, #00d4ff 0%, rgba(0, 212, 255, 0) 72%);
+    }
+    .auth-scene::after {
+      bottom: -170px;
+      left: -120px;
+      background: radial-gradient(circle, #ff8a2a 0%, rgba(255, 138, 42, 0) 70%);
+    }
+    .auth-topbar {
+      position: absolute;
+      top: 14px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 2;
+    }
+    .auth-logo {
+      font-size: 1.25rem;
+      font-weight: 900;
+      letter-spacing: 0.11em;
+      text-transform: uppercase;
+      color: #f2f8ff;
+      text-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    }
+    .auth-switch {
+      border: 1px solid #55788f;
+      background: linear-gradient(180deg, #f6f8fb 0%, #d8e0e8 100%);
+      color: #1a2730;
+      font-weight: 800;
+      border-radius: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+    .auth-card-cloud {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .auth-float-card {
+      position: absolute;
+      border-radius: 14px;
+      border: 1px solid rgba(115, 162, 195, 0.4);
+      color: #f4f7ff;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 12px;
+      width: 170px;
+      aspect-ratio: 1.32;
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-start;
+      box-shadow: 0 18px 28px rgba(0, 0, 0, 0.45);
+      opacity: 0.75;
+      animation: authFloat 13s ease-in-out infinite;
+    }
+    .auth-float-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: linear-gradient(150deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0) 44%);
+      pointer-events: none;
+    }
+    @keyframes authFloat {
+      0%, 100% { transform: translateY(0px) rotate(var(--angle)); }
+      50% { transform: translateY(-14px) rotate(var(--angle)); }
+    }
+    .auth-shell {
+      width: min(92vw, 460px);
+      position: relative;
+      z-index: 2;
+      border: 1px solid #2f3f51;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(35, 40, 51, 0.94) 0%, rgba(22, 27, 38, 0.96) 100%);
+      box-shadow: 0 24px 42px rgba(0, 0, 0, 0.58);
+      padding: 20px;
+      animation: mvModalIn 180ms ease-out;
+    }
+    .auth-title {
+      margin: 0;
+      font-size: 2rem;
+      line-height: 1;
+      text-align: center;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      color: #f4f8ff;
+    }
+    .auth-subtitle {
+      margin: 8px 0 14px;
+      text-align: center;
+      color: #a9bed0;
+      font-size: 0.86rem;
+    }
+    .auth-tab-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .auth-tab-btn {
+      border-radius: 10px;
+      border: 1px solid #3a4f63;
+      background: #1b2533;
+      color: #c8dded;
+      padding: 10px;
+      font-weight: 800;
+      cursor: pointer;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+    }
+    .auth-tab-btn.active {
+      background: linear-gradient(180deg, #0eb8ff 0%, #0b7fb5 100%);
+      border-color: #2bc7ff;
+      color: #ffffff;
+    }
+    .auth-pane { display: none; }
+    .auth-pane.active { display: block; }
+    .auth-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .auth-grid.two {
+      grid-template-columns: 1fr 1fr;
+    }
+    .auth-input {
+      width: 100%;
+      border: 1px solid #3a4a5e;
+      border-radius: 10px;
+      background: #202a38;
+      color: #eff7ff;
+      padding: 11px 12px;
+      font-size: 0.92rem;
+      outline: none;
+    }
+    .auth-input:focus {
+      border-color: #37b5ff;
+      box-shadow: 0 0 0 2px rgba(55, 181, 255, 0.16);
+    }
+    .auth-submit {
+      border: 1px solid #6e7480;
+      background: linear-gradient(180deg, #f8fafc 0%, #dce2eb 100%);
+      color: #1a252d;
+      border-radius: 10px;
+      padding: 11px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 900;
+      margin-top: 4px;
+    }
+    .auth-mini-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .auth-mini-btn {
+      border: 1px solid #355b76;
+      background: #152432;
+      color: #9fdcff;
+      border-radius: 9px;
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .auth-disclaimer {
+      margin-top: 12px;
+      color: #8ba6ba;
+      font-size: 0.74rem;
+      line-height: 1.4;
+      text-align: center;
+    }
+    .auth-error {
+      min-height: 18px;
+      margin-top: 6px;
+      color: #ff9f9f;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .settings-list { display: grid; gap: 10px; }
+    .settings-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(255, 255, 255, 0.03); border: 1px solid #2b3136; border-radius: 8px; padding: 10px;
+    }
+    .setting-meta { display: grid; gap: 2px; }
+    .setting-name { font-weight: 700; font-size: 0.9rem; }
+    .setting-desc { color: #9aa7b3; font-size: 0.78rem; }
+    .toggle-btn {
+      min-width: 80px; border: 1px solid #38566b; background: #11212d; color: #9ad8ff;
+      border-radius: 999px; padding: 6px 10px; font-weight: 700; cursor: pointer;
+    }
+    .toggle-btn.on { background: rgba(0, 162, 255, 0.22); color: #d7f2ff; border-color: #00A2FF; }
+
+    .market-toolbar {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: rgba(25, 27, 29, 0.96);
+      padding: 6px 0 8px;
+    }
+    .market-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .market-tab {
+      border: 1px solid #36566b;
+      border-radius: 999px;
+      background: #13222d;
+      color: #9ad8ff;
+      padding: 7px 12px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .market-tab.active {
+      background: rgba(0, 162, 255, 0.2);
+      border-color: #00A2FF;
+      color: #e7f8ff;
+    }
+    .market-search-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .market-search {
+      flex: 1;
+      background: #111213;
+      border: 1px solid #2d3d47;
+      border-radius: 8px;
+      color: #fff;
+      padding: 8px 10px;
+      outline: none;
+    }
+    .market-count {
+      font-size: 0.75rem;
+      color: #8fbfda;
+      white-space: nowrap;
+    }
+    .market-pager {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .market-page-meta {
+      font-size: 0.78rem;
+      color: #9aa7b3;
+    }
+    .quality-panel {
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid #304453;
+      border-radius: 10px;
+      background: rgba(14, 21, 29, 0.82);
+    }
+    .quality-title {
+      color: #95dcff;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .quality-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .quality-note {
+      color: #9fb4c2;
+      font-size: 0.76rem;
+      margin-bottom: 8px;
+    }
+    .quality-results {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding-left: 18px;
+      color: #cde7f7;
+      font-size: 0.78rem;
+    }
+    .quality-results li[data-status="pass"] { color: #9ff0bc; }
+    .quality-results li[data-status="needs-work"] { color: #ffe38d; }
+    .quality-results li[data-status="fail"] { color: #ff8b8b; }
+    .quality-results li[data-status="not-tested"] { color: #b8c9d4; }
+    .quality-results li[data-status="gated"] { color: #b9a6ff; }
+    .debug-status {
+      color: #99e7ff;
+      font-size: 0.78rem;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .badge-panel {
+      margin-top: 16px;
+      padding: 12px;
+      border: 1px solid #365b72;
+      border-radius: 10px;
+      background: rgba(9, 26, 36, 0.72);
+    }
+    .badge-title {
+      color: #9ae4ff;
+      font-size: 0.92rem;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .badge-count {
+      color: #d8f6ff;
+      font-size: 0.77rem;
+      margin-bottom: 8px;
+    }
+    .badge-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    }
+    .badge-chip {
+      border: 1px solid #365b72;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 0.74rem;
+      background: rgba(11, 26, 35, 0.85);
+    }
+    .badge-chip.unlocked {
+      border-color: #62d4ff;
+      background: rgba(24, 49, 64, 0.92);
+      box-shadow: inset 0 0 0 1px rgba(98, 212, 255, 0.2);
+      color: #ebf8ff;
+    }
+    .badge-chip.locked {
+      opacity: 0.56;
+      color: #95a8b4;
+      filter: grayscale(0.5);
+    }
+    .recent-panel {
+      margin-top: 16px;
+      padding: 12px;
+      border: 1px solid #27475f;
+      border-radius: 10px;
+      background: rgba(11, 27, 38, 0.62);
+    }
+    .recent-title {
+      color: #9bdcff;
+      font-size: 0.95rem;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .recent-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+    .recent-chip {
+      border: 1px solid #355a73;
+      border-radius: 8px;
+      background: rgba(17, 31, 43, 0.8);
+      color: #d7efff;
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+    .recent-chip:hover { border-color: #5e95b8; }
+
+    @media (max-width: 980px) {
+      :root { --mv-rail-w: 62px; }
+      #navbar { grid-template-columns: 1fr; padding: 10px 12px 10px calc(var(--mv-rail-w) + 10px); gap: 8px; height: auto; min-height: var(--mv-nav-h); }
+      .hud-title { font-size: 0.96rem; }
+      .hud-sub { font-size: 0.75rem; }
+      .top-search { padding: 9px 12px; font-size: 0.86rem; }
+      .hud-stats { justify-content: flex-start; flex-wrap: wrap; gap: 7px; }
+      .stat-badge { font-size: 0.76rem; padding: 5px 10px; }
+      #dashboard-overlay { left: var(--mv-rail-w); width: calc(100vw - var(--mv-rail-w)); }
+      #emotes-bar { left: 72px; }
+      #scene-status { left: 72px; }
+      #social-sidebar { display: none; }
+      .app-modal { left: 70px; width: calc(100vw - 80px); }
+
+      body.ai-mobile-open #social-sidebar {
+        display: flex;
+        width: min(360px, 92vw);
+        right: 10px;
+        top: 70px;
+        height: calc(100vh - 90px);
+        border: 1px solid #2c3f4d;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 18px 36px rgba(0, 0, 0, 0.5);
+      }
+
+      body.chat-closed #social-sidebar { display: none; }
+
+      .market-search-row { flex-direction: column; align-items: stretch; }
+      .market-count { white-space: normal; }
+      .chat-hub-layout { grid-template-columns: 1fr; }
+      .idea-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 680px) {
+      :root { --mv-rail-w: 56px; }
+      #navbar { padding-right: 10px; }
+      #dashboard-overlay { left: var(--mv-rail-w); width: calc(100vw - var(--mv-rail-w)); padding: 16px; }
+      #emotes-bar { left: 62px; bottom: 14px; }
+      #scene-status { left: 62px; top: 78px; max-width: calc(100vw - 74px); }
+      .app-modal { left: 60px; width: calc(100vw - 66px); padding: 16px; }
+      .nav-item { font-size: 0.62rem; }
+      .games-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+      .game-thumb { height: 78px; }
+      .friend-bubble { padding: 8px 6px; font-size: 0.68rem; }
+      .friend-bubble .avatar { width: 40px; height: 40px; }
+      .continue-row { grid-template-columns: repeat(auto-fill, minmax(152px, 1fr)); gap: 10px; }
+
+      .auth-scene { padding: 18px 10px 26px; }
+      .auth-topbar { top: 10px; left: 10px; right: 10px; }
+      .auth-logo { font-size: 1rem; }
+      .auth-switch { padding: 8px 11px; font-size: 0.8rem; }
+      .auth-shell { width: min(96vw, 440px); padding: 16px; margin-top: 40px; }
+      .auth-title { font-size: 1.6rem; }
+      .auth-grid.two { grid-template-columns: 1fr; }
+      .auth-float-card { width: 126px; font-size: 0.67rem; }
+    }
+
+    @media (max-width: 520px) {
+      #sidebar { padding-top: 8px; gap: 5px; }
+      .nav-item { font-size: 0.58rem; gap: 4px; padding: 8px 4px; }
+      .nav-item .mv-icon { padding: 3px; }
+      #dashboard-overlay { padding: 14px 12px 22px; }
+      .section-title { font-size: 1.15rem; margin-bottom: 10px; }
+      .games-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .status-chip { font-size: 0.65rem; padding: 5px 8px; }
+      .auth-subtitle { font-size: 0.78rem; }
+      .auth-float-card { display: none; }
+    }
+  </style>
+
+  <script>
+  // Try to load local three.js first (versioned), fallback to other local name, then CDN
+  (function(){
+    var candidates = ['./vendor/three.0.128.0.min.js','./vendor/three.min.js'];
+    var cdn = 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js';
+    function loadCDN(){ var s2 = document.createElement('script'); s2.src = cdn; document.head.appendChild(s2); }
+    function tryLoad(i){
+      if(i>=candidates.length){ loadCDN(); return; }
+      var s = document.createElement('script'); s.src = candidates[i];
+      s.onload = function(){ console.log('Loaded local three.js from', candidates[i]); };
+      s.onerror = function(){ tryLoad(i+1); };
+      document.head.appendChild(s);
+    }
+    tryLoad(0);
+  })();
+  </script>
+</head>
+<body>
+
+  <svg id="mv-icon-sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none">
+    <symbol id="mv-home" viewBox="0 0 24 24"><path d="M3 11.5L12 4l9 7.5"/><path d="M6 10.5V20h12v-9.5"/></symbol>
+    <symbol id="mv-gamepad" viewBox="0 0 24 24"><path d="M7 9h10a4 4 0 0 1 3.8 5.3l-1.1 3A3 3 0 0 1 16.9 20H7.1a3 3 0 0 1-2.8-2l-1.1-3A4 4 0 0 1 7 9z"/><path d="M8.5 13.5h3"/><path d="M10 12v3"/><circle cx="15.8" cy="13.1" r="1"/><circle cx="17.8" cy="15.1" r="1"/></symbol>
+    <symbol id="mv-shop" viewBox="0 0 24 24"><path d="M4 8h16"/><path d="M6 8l1.1 11h9.8L18 8"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></symbol>
+    <symbol id="mv-scroll" viewBox="0 0 24 24"><path d="M7 4h9a3 3 0 0 1 3 3v10"/><path d="M7 4a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10"/><path d="M9 9h7"/><path d="M9 13h6"/></symbol>
+    <symbol id="mv-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1.9 1.9 0 0 1 0 2.7l-.1.1a1.9 1.9 0 0 1-2.7 0l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9v.2A1.9 1.9 0 0 1 13.2 22h-.4a1.9 1.9 0 0 1-1.9-1.9v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a1.9 1.9 0 0 1-2.7 0l-.1-.1a1.9 1.9 0 0 1 0-2.7l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6h-.2A1.9 1.9 0 0 1 3 11.2v-.4a1.9 1.9 0 0 1 1.9-1.9h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a1.9 1.9 0 0 1 0-2.7l.1-.1a1.9 1.9 0 0 1 2.7 0l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9v-.2A1.9 1.9 0 0 1 11.2 2h.4a1.9 1.9 0 0 1 1.9 1.9v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1.9 1.9 0 0 1 2.7 0l.1.1a1.9 1.9 0 0 1 0 2.7l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6h.2A1.9 1.9 0 0 1 21 10.8v.4a1.9 1.9 0 0 1-1.9 1.9h-.2a1 1 0 0 0-.9.6z"/></symbol>
+    <symbol id="mv-dance" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><path d="M10 9l2 2 3-1.2"/><path d="M8 14l3-2 2.4 2.2"/><path d="M8 21l2-4"/><path d="M16 20l-2.6-4.4"/></symbol>
+    <symbol id="mv-wave" viewBox="0 0 24 24"><path d="M9 21V8a2.5 2.5 0 0 1 5 0v5"/><path d="M14 11.5a2 2 0 0 1 4 0V16a5 5 0 0 1-5 5H9"/><path d="M5.5 5.5a4 4 0 0 1 0 5.6"/><path d="M18.5 5.5a4 4 0 0 1 0 5.6"/></symbol>
+    <symbol id="mv-flip" viewBox="0 0 24 24"><path d="M4 8h9"/><path d="M9 4l4 4-4 4"/><path d="M20 16h-9"/><path d="M15 12l-4 4 4 4"/></symbol>
+    <symbol id="mv-rocket" viewBox="0 0 24 24"><path d="M13 3c4.5 1 7 4 8 8l-5 2-5-5 2-5z"/><path d="M11 8L7 12l5 5 4-4"/><path d="M6 13l-3 1 1-3"/><path d="M10 18l-1 3-2-2 3-1"/></symbol>
+    <symbol id="mv-racer" viewBox="0 0 24 24"><path d="M4 14h16"/><path d="M7 14l1.7-4h6.6l2 4"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></symbol>
+    <symbol id="mv-sword" viewBox="0 0 24 24"><path d="M14 4l6 6-9.5 9.5-4-4L14 4z"/><path d="M7 18l-2 2"/><path d="M5 16l3 3"/></symbol>
+    <symbol id="mv-castle" viewBox="0 0 24 24"><path d="M4 20V8h4v2h3V8h4v2h3V8h2v12z"/><path d="M10 20v-4h4v4"/></symbol>
+    <symbol id="mv-drone" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.4"/><path d="M4 7h4v4H4z"/><path d="M16 7h4v4h-4z"/><path d="M4 13h4v4H4z"/><path d="M16 13h4v4h-4z"/><path d="M8 9.2l2.4 1.6"/><path d="M15.6 10.8L13.2 9.2"/><path d="M8 14.8l2.4-1.6"/><path d="M15.6 13.2l-2.4 1.6"/></symbol>
+    <symbol id="mv-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3z"/></symbol>
+    <symbol id="mv-neon" viewBox="0 0 24 24"><path d="M12 2l2.3 5.4 5.7.5-4.3 3.8 1.3 5.6L12 14.7 7 17.3l1.3-5.6L4 7.9l5.7-.5L12 2z"/></symbol>
+    <symbol id="mv-bot" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="11" rx="3"/><circle cx="9.5" cy="12" r="1"/><circle cx="14.5" cy="12" r="1"/><path d="M12 4v3"/><path d="M9 18.5h6"/></symbol>
+    <symbol id="mv-badge" viewBox="0 0 24 24"><path d="M12 3l7 4v6c0 4-2.8 7.2-7 8-4.2-.8-7-4-7-8V7l7-4z"/><path d="M9 12l2 2 4-4"/></symbol>
+    <symbol id="mv-companion" viewBox="0 0 24 24"><circle cx="12" cy="9" r="3"/><path d="M5 19a7 7 0 0 1 14 0"/><path d="M4 9l2-1"/><path d="M20 9l-2-1"/></symbol>
+    <symbol id="mv-emote" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M8.5 10h.01"/><path d="M15.5 10h.01"/><path d="M8.5 15c1 .9 2.1 1.4 3.5 1.4s2.5-.5 3.5-1.4"/></symbol>
+  </svg>
+
+  <div id="canvas-container">
+    <div id="scene-status">Universe shell online · build mode active</div>
+  </div>
+
+  <div id="auth-overlay" role="dialog" aria-modal="true" aria-label="Metaverse account access">
+    <div class="auth-scene">
+      <div class="auth-topbar">
+        <div class="auth-logo">Metaverse</div>
+        <button class="auth-switch" type="button" onclick="enterAsGuest()">Guest</button>
+      </div>
+      <div class="auth-card-cloud" aria-hidden="true">
+        <div class="auth-float-card" style="--angle:-12deg;top:4%;left:2%;background:linear-gradient(155deg,#3e1515 0%,#9b3728 42%,#161f2f 100%);">Mimic Chase</div>
+        <div class="auth-float-card" style="--angle:9deg;top:10%;left:25%;background:linear-gradient(150deg,#0f3a5f 0%,#1183c8 42%,#121a2b 100%);">Ocean Raid</div>
+        <div class="auth-float-card" style="--angle:-7deg;top:12%;right:8%;background:linear-gradient(150deg,#4a2f10 0%,#d9692b 50%,#141a28 100%);">Arena Clash</div>
+        <div class="auth-float-card" style="--angle:11deg;top:36%;left:4%;background:linear-gradient(150deg,#254014 0%,#56b24a 45%,#101b20 100%);">Rift Racers</div>
+      </div>
+
+      <div class="auth-shell">
+        <h1 class="auth-title">LOG IN OR SIGN UP TODAY!</h1>
+        <p class="auth-subtitle">Enter your account to continue into the early beta.</p>
+        <div class="auth-tab-row">
+          <button id="auth-tab-login" class="auth-tab-btn active" type="button" onclick="setAuthMode('login')">Log In</button>
+          <button id="auth-tab-signup" class="auth-tab-btn" type="button" onclick="setAuthMode('signup')">Sign Up</button>
+        </div>
+
+        <div id="auth-pane-login" class="auth-pane active">
+          <div class="auth-grid">
+            <input id="auth-login-id" class="auth-input" type="text" maxlength="36" placeholder="Username or handle" />
+            <input id="auth-login-password" class="auth-input" type="password" maxlength="64" placeholder="Password" />
+            <button class="auth-submit" type="button" onclick="submitAuthLogin()">Enter Metaverse</button>
+          </div>
+          <div class="auth-mini-row">
+            <button class="auth-mini-btn" type="button" onclick="setAuthMode('signup')">Create account</button>
+            <button class="auth-mini-btn" type="button" onclick="enterAsGuest()">Continue as guest</button>
+          </div>
+        </div>
+
+        <div id="auth-pane-signup" class="auth-pane">
+          <div class="auth-grid two">
+            <input id="auth-signup-display" class="auth-input" type="text" maxlength="36" placeholder="Display name" />
+            <input id="auth-signup-user" class="auth-input" type="text" maxlength="36" placeholder="Username" />
+          </div>
+          <div class="auth-grid">
+            <input id="auth-signup-pass" class="auth-input" type="password" maxlength="64" placeholder="Password (8+ chars)" />
+            <input id="auth-signup-about" class="auth-input" type="text" maxlength="120" placeholder="One-line bio (optional)" />
+            <button class="auth-submit" type="button" onclick="submitAuthSignup()">Create and Enter</button>
+          </div>
+        </div>
+
+        <div id="auth-error" class="auth-error" role="status" aria-live="polite"></div>
+        <div id="auth-account-list" class="auth-account-list"></div>
+        <div class="auth-disclaimer">Original early-beta entry screen inspired by multiplayer platform portals, built for this project only.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top UI HUD -->
+  <div id="navbar">
+    <div>
+      <div class="hud-title" onclick="showDashboard()">Metaverse Select</div>
+      <div class="hud-sub">Friends hub and creator runtime</div>
+    </div>
+    <input class="top-search" type="text" placeholder="Search experiences, players, groups..." maxlength="64" />
+    <div class="hud-stats">
+      <div class="stat-badge">Nano_banana</div>
+      <div class="stat-badge">M$ <span id="user-coins">500</span></div>
+      <div class="stat-badge">XP <span id="user-xp">1000</span></div>
+    </div>
+  </div>
+
+  <!-- Left Navigation Sidebar -->
+  <div id="sidebar">
+    <div class="nav-item active" id="nav-home" data-icon="home" data-emoji="🏠" onclick="showDashboard()">Home</div>
+    <div class="nav-item" id="nav-games" data-icon="gamepad" data-emoji="🎮" onclick="openModal('modal-games')">Charts</div>
+    <div class="nav-item" id="nav-chat" data-icon="scroll" data-emoji="💬" onclick="openModal('modal-chat-hub')">Chat</div>
+    <div class="nav-item" id="nav-me" data-icon="companion" data-emoji="🙂" onclick="openModal('modal-profile')">Me</div>
+    <div class="nav-item" id="nav-more" data-icon="settings" data-emoji="☰" onclick="openModal('modal-more')">More</div>
+  </div>
+
+  <!-- Emotes Bar -->
+  <div id="emotes-bar">
+    <button class="emote-btn" data-icon="dance" data-emoji="💃" onclick="triggerEmote('dance')">Dance (1)</button>
+    <button class="emote-btn" data-icon="wave" data-emoji="👋" onclick="triggerEmote('wave')">Wave (2)</button>
+    <button class="emote-btn" data-icon="flip" data-emoji="🔄" onclick="triggerEmote('flip')">Flip (3)</button>
+  </div>
+
+  <!-- Main Dashboard Overlay -->
+  <div id="dashboard-overlay">
+    <div id="home-friends-title" class="section-title">Friends</div>
+    <div id="home-friends-strip" class="friends-strip"></div>
+    <div id="onboarding-tip-panel" class="onboarding-panel" style="display:none;">
+      <div class="onboarding-head">
+        <span>Quick Start</span>
+        <span id="onboarding-step">Step 1/4</span>
+      </div>
+      <div id="onboarding-tip-text" class="onboarding-note">Welcome.</div>
+      <div class="onboarding-actions">
+        <button class="btn-action" type="button" onclick="openModal('modal-idea-lab')">Open Idea Lab</button>
+        <button class="btn-action" type="button" onclick="dismissOnboardingTips()">Dismiss</button>
+      </div>
+    </div>
+    <div class="status-chips">
+      <div class="status-chip">Quantum Sync: Active</div>
+      <div class="status-chip">Render Mesh: Stable</div>
+      <div class="status-chip">Security Envelope: Hardened</div>
+      <div class="status-chip">AI Copilot: Online</div>
+    </div>
+    <div id="runtime-panel" class="dashboard-panel runtime-panel" style="font-size:0.85rem;">
+      <div class="panel-title">Foundation Runtime (DC-200 + 783)</div>
+      <div>Device Tier: <span id="rt-device-tier">...</span></div>
+      <div>Quality Hint: <span id="rt-quality-hint">...</span></div>
+      <div>Measured Runtime: <span id="rt-fps">...</span></div>
+      <div>Detected Inputs: <span id="rt-inputs">...</span></div>
+      <div>Rendering Path: <span id="rt-rendering">...</span></div>
+      <div>Graphics Policy: <span id="rt-graphics-policy">pending</span></div>
+      <div>Last Action: <span id="rt-last-action">none</span></div>
+      <div>790 Predicted: <span id="rt-790-pred">(0.00, 0.00, 0.00)</span></div>
+      <div>790 Authority: <span id="rt-790-auth">(0.00, 0.00, 0.00)</span></div>
+      <div>790 Reconciles: <span id="rt-790-recon">0</span></div>
+      <div>784 Global: <span id="rt-784-global">guest</span></div>
+      <div>784 Faction: <span id="rt-784-faction">neutral</span></div>
+      <div>784 Mode Stats: <span id="rt-784-mode">sandbox p:0 j:0 e:0</span></div>
+      <div>784 Session: <span id="rt-784-session">pending</span></div>
+      <div>871 Policy: <span id="rt-871-policy">default-deny</span></div>
+      <div>871 Last Event: <span id="rt-871-event">none</span></div>
+      <div>874 Last Event: <span id="rt-874-event">none</span></div>
+      <div>872 Last Tx: <span id="rt-872-tx">none</span></div>
+      <div>975 Zone: <span id="rt-975-zone">outside</span></div>
+      <div>975 Door: <span id="rt-975-door">closed</span></div>
+    </div>
+    <div id="implement-mode-panel" class="dashboard-panel" style="border-color:#1b4f2b;background:rgba(13,38,21,0.88);font-size:0.85rem;color:#d8ffe5;">
+      <div style="font-weight:700;color:#7dffae;margin-bottom:8px;">MODE:IMPLEMENT</div>
+      <div style="margin-bottom:6px;">State: <span id="impl-state">booting...</span></div>
+      <div style="margin-bottom:8px;">Ideas Source: <span id="impl-source">pending</span></div>
+      <div style="font-weight:600;margin-bottom:6px;">Active Build Queue</div>
+      <ol id="impl-queue" style="padding-left:18px;margin:0;display:grid;gap:4px;"></ol>
+    </div>
+    <div class="dashboard-panel control-panel" style="font-size:0.85rem;color:#c7d2dc;">
+      <div class="panel-title">Core Runtime Controls</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-action" onclick="spatialDoorAction('hangar-gate')">Toggle Hangar Gate</button>
+        <button class="btn-action" onclick="runSandboxProbe()">Run Sandbox Probe</button>
+        <button class="btn-action" onclick="toggleDebugMode()">Toggle Debug Mode</button>
+        <button class="btn-action" onclick="runDebugSweep()">Run Debug Sweep</button>
+      </div>
+    </div>
+    <div id="badge-panel" class="badge-panel">
+      <div class="badge-title">Badge Vault</div>
+      <div id="badge-count" class="badge-count">0 / 0 unlocked</div>
+      <div id="badge-grid" class="badge-grid"></div>
+    </div>
+    <div id="home-reco-title" class="section-title">Recommended For You</div>
+    <div id="dashboard-games-grid" class="games-grid"></div>
+    <div id="home-continue-title" class="section-title" style="margin-top:12px;">Continue</div>
+    <div id="home-continue-row" class="continue-row"></div>
+    <div class="recent-panel">
+      <div class="recent-title">Recently Played Portals</div>
+      <div id="recent-experiences" class="recent-grid"></div>
+    </div>
+  </div>
+
+  <!-- View Modals -->
+  <div id="modal-games" class="app-modal">
+    <span class="modal-close" onclick="closeModals()">✖</span>
+    <div class="section-title">All Experiences</div>
+    <p style="color:#aaa; margin-bottom: 15px;">Browse all community-created sub-games.</p>
+    <div id="modal-games-grid" class="games-grid"></div>
+  </div>
+
+  <div id="modal-shop" class="app-modal">
+    <span class="modal-close" onclick="closeModals()">✖</span>
+    <div class="section-title">Avatar Shop</div>
+    <p style="color:#aaa; margin-bottom: 10px;">Real-time marketplace with high-volume inventory.</p>
+    <div class="market-toolbar">
+      <div id="market-tabs" class="market-tabs"></div>
+      <div class="market-search-row">
+        <input id="market-search" class="market-search" type="text" placeholder="Search marketplace items..." maxlength="48" />
+        <div id="market-count" class="market-count">Loading catalog...</div>
+      </div>
+    </div>
+    <div id="market-grid" class="games-grid"></div>
+    <div class="market-pager">
+      <button id="market-prev" class="btn-action" type="button">Prev</button>
+      <div id="market-page-meta" class="market-page-meta">Page 1 / 1</div>
+      <button id="market-next" class="btn-action" type="button">Next</button>
+    </div>
+  </div>
+
+  <div id="modal-updates" class="app-modal">
+    <span class="modal-close" onclick="closeModals()">✖</span>
+    <div class="section-title">Update Logs</div>
+    <div class="chat-box" style="max-height:unset;">
+      <div id="rules-reference-note" class="chat-msg"><span>v1.6 Rules:</span> Canonical policy baseline tracked in the rules reference document.</div>
+      <div class="chat-msg"><span>v1.5 Build:</span> Added MODE:IMPLEMENT queue from master ideas list.</div>
+      <div class="chat-msg"><span>v1.5 Runtime:</span> DC-200, 783, 795 foundations wired into live panel.</div>
+      <div class="chat-msg"><span>v1.5 Spatial:</span> 790 local prediction/reconciliation stub active.</div>
+      <div class="chat-msg"><span>v1.5 Identity:</span> 784 tier separation scaffolded and evented.</div>
+      <div class="chat-msg"><span>v1.5 Security:</span> 871 deny-by-default sandbox mock enabled.</div>
+    </div>
+  </div>
+
+  <div id="modal-chat-hub" class="app-modal">
+    <span class="modal-close" onclick="closeModals()">✖</span>
+    <div class="section-title">Chat</div>
+    <div class="chat-hub-layout">
+      <div id="chat-hub-list" class="chat-hub-list"></div>
+      <div class="chat-hub-empty">
+        <div>
+          <div style="font-size:1rem;font-weight:800;margin-bottom:6px;">Choose a conversation</div>
+          <div style="font-size:0.82rem;opacity:0.9;">Select a friend or group from the left, or use the social relay panel for live channels.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-profile" class="app-modal">
+    <span class="modal-close" onclick="closeModals()">✖</span>
+    <div class="section-title">My Profile</div>
+    <div class="profile-card">
+      <div class="profile-head">
+        <div class="profile-avatar">🍌</div>
+        <div>
+          <div id="profile-display-name" style="font-size:1.05rem;font-weight:800;">Nano_banana</div>
+          <div id="profile-username" style="font-size:0.82rem;color:#b4d8ef;">@guest-local</div>
+        </div>
+      </div>
+      <div id="profile-about" style="font-size:0.84rem;line-height:1.45;">Creator profile for metaverse sandbox testing and community game collaboration.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-action" type="button" onclick="openModal('modal-profile-edit')">Edit Profile</button>
+        <button class="btn-action" type="button" onclick="openModal('modal-profile-about')">About</button>
+        <button class="btn-action" type="button" onclick="switchAccount()">Switch Account</button>
+        <button class="btn-action" type="button" onclick="logoutAccount()">Log Out</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-profile-edit" class="app-modal">
+    <span class="modal-close" onclick="closeModals()">✖</span>
+    <div class="section-title">Edit Profile</div>
+    <div class="profile-sheet">
+      <input id="profile-edit-name" type="text" placeholder="Display name" maxlength="36" />
+      <input id="profile-edit-username" type="text" placeholder="Username" maxlength="36" />
+      <textarea id="profile-edit-about" placeholder="About you" maxlength="240"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn-action" type="button" onclick="saveProfileEdits()">Save</button>
+        <button class="btn-action" type="button" onclick="openModal('modal-profile')">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-profile-about" class="app-modal">
+    <span class="modal-close" onclick="closeModals()">✖</span>
+    <div class="section-title">About Profile</div>
+    <div id="profile-about-sheet" class="profile-sheet">
+      <div style="font-weight:800;">Social links</div>
+      <div style="font-size:0.82rem;">No social links yet.</div>
+      <div style="font-weight:800;">Previous names</div>
+      <div style="font-size:0.82rem;">No previous names.</div>
+      <div style="font-weight:800;">Statistics</div>
+      <div style="font-size:0.82rem;">Joined runtime testing in 2026.</div>
+      <button class="btn-action" type="button" onclick="openModal('modal-profile')">Back to profile</button>
+    </div>
+  </div>
+
+  <div id="modal-more" class="app-modal">
+    <span class="modal-close" onclick="closeModals()">✖</span>
+    <div class="section-title">More</div>
+    <div class="more-grid">
+      <button class="more-tile" type="button" onclick="openModal('modal-shop')">Marketplace</button>
+      <button class="more-tile" type="button" onclick="openModal('modal-settings')">Settings</button>
+      <button class="more-tile" type="button" onclick="openModal('modal-updates')">Newsroom</button>
+      <button class="more-tile" type="button" onclick="openModal('modal-profile')">Profile</button>
+      <button class="more-tile" type="button" onclick="openModal('modal-chat-hub')">Messages</button>
+      <button class="more-tile" type="button" onclick="openModal('modal-games')">Experiences</button>
+      <button class="more-tile" type="button" onclick="openModal('modal-idea-lab')">Idea Lab</button>
+      <button class="more-tile" type="button" onclick="switchAccount()">Switch Account</button>
+      <button class="more-tile" type="button" onclick="logoutAccount()">Log Out</button>
+      <button class="more-tile" type="button" onclick="runAllChecks()">Safety Check</button>
+      <button class="more-tile" type="button" onclick="runDebugSweep('manual', true)">Debug Repair</button>
+    </div>
+  </div>
+
+  <div id="modal-idea-lab" class="app-modal">
+    <span class="modal-close" onclick="closeModals()">✖</span>
+    <div class="section-title">Idea Lab & Vault</div>
+    <p style="color:#bfe2f8;margin-bottom:10px;font-size:0.82rem;">Master-file rules active: max 4 active ideas, max 10 pulls per unlock cycle.</p>
+    <div class="quality-actions">
+      <input id="idea-mfa-input" class="market-search" type="text" placeholder="Enter Vault MFA code" maxlength="24" />
+      <button class="btn-action" type="button" onclick="unlockIdeaVault()">Unlock Vault</button>
+      <button class="btn-action" type="button" onclick="pullIdeaFromVault()">Pull Idea</button>
+      <button class="btn-action" type="button" onclick="approveAllActiveIdeas()">Banana Approve All</button>
+    </div>
+    <div id="idea-lab-note" class="quality-note">Vault locked.</div>
+    <div class="quality-note">Status: <span id="idea-vault-status">LOCKED</span> · Active: <span id="idea-active-count">0/4</span> · Pulls: <span id="idea-vault-pulls">0/10</span></div>
+    <div class="idea-grid">
+      <div class="idea-panel">
+        <div class="quality-title">Active Ideas</div>
+        <div id="idea-active-list" class="idea-list"></div>
+      </div>
+      <div class="idea-panel">
+        <div class="quality-title">Vault Queue</div>
+        <div id="idea-vault-list" class="idea-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-settings" class="app-modal">
+    <span class="modal-close" onclick="closeModals()">✖</span>
+    <div class="section-title">Settings</div>
+    <div class="settings-list">
+      <div class="settings-item">
+        <div class="setting-meta">
+          <div class="setting-name">Reduced Motion</div>
+          <div class="setting-desc">Minimizes interface movement effects.</div>
+        </div>
+        <button id="setting-reduced-motion" class="toggle-btn" onclick="toggleSetting('reduced-motion')">OFF</button>
+      </div>
+      <div class="settings-item">
+        <div class="setting-meta">
+          <div class="setting-name">Performance Mode</div>
+          <div class="setting-desc">Biases visuals toward stability.</div>
+        </div>
+        <button id="setting-performance" class="toggle-btn" onclick="toggleSetting('performance')">OFF</button>
+      </div>
+      <div class="settings-item">
+        <div class="setting-meta">
+          <div class="setting-name">Streamer Mode</div>
+          <div class="setting-desc">Masks personal identifiers in social panes.</div>
+        </div>
+        <button id="setting-streamer" class="toggle-btn" onclick="toggleSetting('streamer')">OFF</button>
+      </div>
+      <div class="settings-item">
+        <div class="setting-meta">
+          <div class="setting-name">Cinematic Bloom</div>
+          <div class="setting-desc">Adds subtle neon bloom to emissive elements.</div>
+        </div>
+        <button id="setting-cinematic" class="toggle-btn" onclick="toggleSetting('cinematic')">OFF</button>
+      </div>
+      <div class="settings-item">
+        <div class="setting-meta">
+          <div class="setting-name">Live Physics Interp</div>
+          <div class="setting-desc">Smooths interpolation for heavy scene moments.</div>
+        </div>
+        <button id="setting-physics" class="toggle-btn" onclick="toggleSetting('physics')">OFF</button>
+      </div>
+      <div class="settings-item">
+        <div class="setting-meta">
+          <div class="setting-name">Debug Mode Scanner</div>
+          <div class="setting-desc">Actively scans for runtime bugs until disabled.</div>
+        </div>
+        <button id="setting-debug-mode" class="toggle-btn" onclick="toggleSetting('debug')">OFF</button>
+      </div>
+      <div class="settings-item">
+        <div class="setting-meta">
+          <div class="setting-name">Visibility Boost</div>
+          <div class="setting-desc">Makes key UI panels easier to see with stronger contrast.</div>
+        </div>
+        <button id="setting-visibility" class="toggle-btn" onclick="toggleSetting('visibility')">ON</button>
+      </div>
+      <div class="settings-item">
+        <div class="setting-meta">
+          <div class="setting-name">Hide Extra Panels</div>
+          <div class="setting-desc">Hides non-essential panels for a cleaner view.</div>
+        </div>
+        <button id="setting-hide-extras" class="toggle-btn" onclick="toggleSetting('hide-extras')">OFF</button>
+      </div>
+      <div class="settings-item">
+        <div class="setting-meta">
+          <div class="setting-name">Realism Slider</div>
+          <div class="setting-desc">Tune visual realism from Arcade to Simulation.</div>
+        </div>
+        <div class="slider-wrap">
+          <input id="setting-realism" type="range" min="0" max="100" step="1" value="55" />
+          <div id="setting-realism-value" class="slider-value">55%</div>
+        </div>
+      </div>
+    </div>
+    <div class="quality-panel">
+      <div class="quality-title">Platform Quality Gates</div>
+      <div class="quality-note">BIG CHECK inspects Gameplay, UI, Compatibility, Performance, Multiplayer, Security, Accessibility, Privacy, Rights, Recovery, Integration, and Runtime Honesty. NOT TESTED and GATED are not PASS.</div>
+      <div class="quality-actions">
+        <button class="btn-action" type="button" onclick="runBigCheck()">Run BIG CHECK</button>
+        <button class="btn-action" type="button" onclick="runUltraCheck()">Run ULTRA CHECK</button>
+        <button class="btn-action" type="button" onclick="runAllChecks()">Test All</button>
+        <button class="btn-action" type="button" onclick="runRecoveryDrill()">Run Recovery Drill</button>
+        <button class="btn-action" type="button" onclick="openRulesReference()">Open Rules Ref</button>
+      </div>
+      <ol id="quality-check-results" class="quality-results"></ol>
+    </div>
+    <div id="quality-debug-panel" class="quality-panel">
+      <div class="quality-title">Autonomous Debug Mode</div>
+      <div class="quality-note">When ON, scanner runs continuously and logs potential bug signals until you turn it off.</div>
+      <div class="quality-actions">
+        <button class="btn-action" type="button" onclick="toggleDebugMode()">Toggle Debug Mode</button>
+        <button class="btn-action" type="button" onclick="runDebugSweep()">Run Immediate Sweep</button>
+        <button class="btn-action" type="button" onclick="runDebugSweep('manual', true)">Run Auto-Fix Sweep</button>
+        <button class="btn-action" type="button" onclick="exportDebugReport()">Export Bug Report</button>
+      </div>
+      <div id="debug-status" class="debug-status">OFF · scans: 0</div>
+      <div id="debug-report-summary" class="quality-note">No report generated yet.</div>
+      <ol id="debug-findings" class="quality-results"></ol>
+    </div>
+    <div class="quality-panel">
+      <div class="quality-title">Secrets Vault</div>
+      <div class="quality-note">Hidden lore and secret ops unlockers. Reveal one at a time.</div>
+      <div class="quality-actions">
+        <button class="btn-action" type="button" onclick="revealSecret()">Reveal Secret</button>
+      </div>
+      <div id="secret-count" class="debug-status">0 / 0 secrets revealed</div>
+      <div id="secret-list" class="secret-list"></div>
+    </div>
+  </div>
+
+  <div id="social-sidebar">
+    <div class="social-header">
+      <div class="social-title">COMMS RELAY</div>
+      <div class="social-actions">
+        <button class="social-action-btn" type="button" aria-label="Minimize chat" title="Minimize" onclick="minimizeChatSidebar()">_</button>
+        <button class="social-action-btn" type="button" aria-label="Close chat" title="Close" onclick="closeChatSidebar()">✕</button>
+      </div>
+    </div>
+    <div class="chat-tabs">
+      <div class="chat-tab active" data-tab="global" onclick="switchChatTab('global')">GLOBAL</div>
+      <div class="chat-tab" data-tab="friends" onclick="switchChatTab('friends')">FRIENDS</div>
+      <div class="chat-tab" data-tab="players" onclick="switchChatTab('players')">PLAYERS</div>
+      <div class="chat-tab" data-tab="communities" onclick="switchChatTab('communities')">GROUPS</div>
+      <div class="chat-tab" data-tab="ai" onclick="switchChatTab('ai')">AI</div>
+    </div>
+
+    <div id="panel-global" class="panel-content active">
+      <div id="chat-global" class="chat-box">
+        <div class="chat-msg"><span>System:</span> Welcome to METAVERSE build mode.</div>
+      </div>
+      <div class="chat-input-box">
+        <div class="chat-input-row">
+          <input id="chat-input-global" type="text" placeholder="Type to global chat..." />
+          <button class="chat-send" onclick="sendChatMessage('global')">Send</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="panel-friends" class="panel-content">
+      <div id="chat-friends" class="chat-box">
+        <div class="chat-msg"><span>Party:</span> Friend channel ready.</div>
+      </div>
+      <div class="chat-input-box">
+        <div class="chat-input-row">
+          <input id="chat-input-friends" type="text" placeholder="Message friends..." />
+          <button class="chat-send" onclick="sendChatMessage('friends')">Send</button>
+        </div>
+      </div>
+      <div class="friend-browser">
+        <input id="friend-search-input" type="text" placeholder="Browse players and add friends..." maxlength="40" />
+        <div id="friend-browser-list"></div>
+      </div>
+    </div>
+
+    <div id="panel-players" class="panel-content">
+      <div class="player-item"><span><i class="status-dot online"></i><span class="mv-icon icon-tone-royal" aria-hidden="true"><svg><use href="#mv-badge"></use></svg></span>Guest</span><span>Sandbox</span></div>
+      <div class="player-item"><span><i class="status-dot online"></i><span class="mv-icon icon-tone-orange" aria-hidden="true"><svg><use href="#mv-racer"></use></svg></span>OrbitFox</span><span>Racers</span></div>
+      <div class="player-item"><span><i class="status-dot online"></i><span class="mv-icon icon-tone-crimson" aria-hidden="true"><svg><use href="#mv-sword"></use></svg></span>EchoMint</span><span>Sword</span></div>
+      <div id="players-feed"></div>
+    </div>
+
+    <div id="panel-communities" class="panel-content">
+      <div class="community-form">
+        <input id="community-name" type="text" placeholder="Community name" maxlength="36" />
+        <select id="community-visibility">
+          <option value="public">Public</option>
+          <option value="unlisted">Unlisted</option>
+          <option value="private">Private</option>
+        </select>
+        <input id="community-members" type="text" placeholder="Allowed members (comma-separated)" maxlength="180" />
+        <button class="btn-action" type="button" onclick="createCommunity()">Create Community</button>
+      </div>
+      <div id="community-list" class="community-list"></div>
+    </div>
+
+    <div id="panel-ai" class="panel-content">
+      <div id="chat-ai" class="chat-box">
+        <div class="chat-msg bot"><span>AI:</span> Hello Creator. Ask about gameplay, controls, shop, security, or performance tuning.</div>
+        <div id="ai-seed-lines"></div>
+      </div>
+      <div class="chat-input-box">
+        <div class="chat-input-row">
+          <input id="chat-input-ai" type="text" placeholder="Ask AI assistant..." maxlength="320" />
+          <button id="ai-send-btn" class="chat-send" onclick="sendAiMessage()">Ask</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button id="ai-launcher" type="button" aria-label="Open AI assistant" title="AI Assistant" onclick="toggleAiAssistant()"><span class="mv-icon icon-tone-electric" aria-hidden="true"><svg><use href="#mv-bot"></use></svg></span></button>
+
+  <!-- Vercel Insights are loaded only in http(s) environments -->
+  <script>
+    (function () {
+      var protocol = window.location.protocol;
+      if (protocol !== 'http:' && protocol !== 'https:') return;
+
+      window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+
+      var speed = document.createElement('script');
+      speed.defer = true;
+      speed.src = '/_vercel/speed-insights/script.js';
+      document.body.appendChild(speed);
+
+      var analytics = document.createElement('script');
+      analytics.defer = true;
+      analytics.src = '/_vercel/insights/script.js';
+      document.body.appendChild(analytics);
+    })();
+  </script>
+
+  <script>
+    // Ensure service worker registration is relative to the file location
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('🎮 METAVERSE Service Worker registered'))
+        .catch(err => console.log('⚠️ Service Worker registration failed:', err));
+    }
+  </script>
+
+  <script src="./runtime-foundation.js"></script>
+</body>
+</html>

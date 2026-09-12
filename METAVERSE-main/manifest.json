@@ -1,0 +1,27 @@
+{
+  "name": "METAVERSE Hub - Virtual Gaming World",
+  "short_name": "METAVERSE",
+  "description": "Explore the METAVERSE! Play games, customize your R6 avatar, collect items, and build your virtual empire.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0b0c",
+  "theme_color": "#00A2FF",
+  "orientation": "any",
+  "scope": "./",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%2300A2FF'/><text x='256' y='340' font-size='280' text-anchor='middle' fill='%23fff'>M</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%2300A2FF'/><text x='256' y='340' font-size='280' text-anchor='middle' fill='%23fff'>M</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games", "entertainment", "social"],
+  "screenshots": []
+}
